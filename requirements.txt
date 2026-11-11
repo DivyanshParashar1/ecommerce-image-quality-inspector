@@ -1,0 +1,10 @@
+numpy>=1.24,<2.0
+opencv-python>=4.8
+pandas>=2.0
+matplotlib>=3.7
+torch>=2.1
+torchvision>=0.16
+streamlit>=1.30
+requests>=2.31
+python-dotenv>=1.0
+kaggle>=1.7

@@ -1,0 +1,15 @@
+# environment and secrets
+.venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+
+# large / regenerable data (rebuild with scripts/make_dataset.py or the Kaggle kernel)
+data/dataset/
+data/dev_dataset/
+data/clean_samples/
+kaggle/kernel/
+
+# course handouts
+*.docx
