@@ -1,0 +1,44 @@
+{
+  "blur": {
+    "feature": "blur_score",
+    "dir": "lt",
+    "t": 276.403564453125,
+    "f1": 0.847682119205298,
+    "n_pos": 82
+  },
+  "noise": {
+    "feature": "noise_score",
+    "dir": "gt",
+    "t": 2.9652,
+    "f1": 1.0,
+    "n_pos": 78
+  },
+  "dark": {
+    "feature": "dark_score",
+    "dir": "lt",
+    "t": 159.64,
+    "f1": 0.8852459016393442,
+    "n_pos": 89
+  },
+  "non_white_bg": {
+    "feature": "bg_chroma",
+    "dir": "gt",
+    "t": 8.154234409332275,
+    "f1": 0.9824561403508771,
+    "n_pos": 86
+  },
+  "bad_framing": {
+    "feature": "framing_score",
+    "dir": "gt",
+    "t": 0.42590299584892205,
+    "f1": 0.8217054263565892,
+    "n_pos": 57
+  },
+  "cropped": {
+    "feature": "crop_score",
+    "dir": "gt",
+    "t": 0.0322265625,
+    "f1": 0.725,
+    "n_pos": 74
+  }
+}
