@@ -1,0 +1,13 @@
+filename,title,origin,blur,noise,dark,non_white_bg,bad_framing,cropped
+00_clean.jpg,Clean,test/test_00005.jpg,0,0,0,0,0,0
+01_blur.jpg,Blur,test/test_00009.jpg,1,0,0,0,0,0
+02_noise.jpg,Noise,test/test_00029.jpg,0,1,0,0,0,0
+03_dark.jpg,Dark,test/test_00047.jpg,0,0,1,0,0,0
+04_non_white_bg.jpg,Non white bg,test/test_00016.jpg,0,0,0,1,0,0
+05_bad_framing.jpg,Bad framing,test/test_00008.jpg,0,0,0,0,1,0
+06_cropped.jpg,Cropped,test/test_00031.jpg,0,0,0,0,0,1
+07_non_white_bg_bad_framing.jpg,Non white bg + bad framing,test/test_00049.jpg,0,0,0,1,1,0
+08_dark_blur.jpg,Dark + blur,test/test_00003.jpg,1,0,1,0,0,0
+09_noise_cropped.jpg,Noise + cropped,test/test_00060.jpg,0,1,0,0,0,1
+10_original_catalogue_photo_1.jpg,Original catalogue photo 1,kaggle/10000.jpg,,,,,,
+11_original_catalogue_photo_2.jpg,Original catalogue photo 2,kaggle/10006.jpg,,,,,,
