@@ -158,68 +158,125 @@ except Exception as e:
     st.stop()
 
 img_hash = hashlib.sha256(img_bytes).hexdigest()
-c1, c2 = st.columns([1, 2])
-with c1:
-    st.image(to_rgb(img), caption=f"Input ({img.shape[1]}x{img.shape[0]})", width="stretch")
-    if truth is not None:
-        bad = [d for d, v in truth.items() if v]
-        st.caption("Ground truth: " + (", ".join(bad) if bad else "clean"))
 
-results = {}
-with c2:
-    if not chosen:
-        st.info("Select at least one method in the sidebar.")
+CHECK = {  # defect -> (name of the check, wording when it fails)
+    "blur": ("Sharpness", "Blurry"),
+    "noise": ("Noise", "Noisy / grainy"),
+    "dark": ("Exposure", "Too dark or low contrast"),
+    "non_white_bg": ("White background", "Background not white"),
+    "bad_framing": ("Framing", "Product too small or off-centre"),
+    "cropped": ("Fully in frame", "Product cut off at the edge"),
+}
+
+
+def issues_of(r):
+    return [d for d in DEFECTS if r["defects"].get(d, {}).get("fail")]
+
+
+def meta_line(r):
+    parts = [f"{r.get('time_s', 0):.2f} s"]
+    u = r.get("usage")
+    if isinstance(u, dict) and u.get("cost") is not None:
+        parts.append(f"${float(u['cost']):.5f}")
+    if r.get("model"):
+        parts.append(r["model"])
+    return " · ".join(parts)
+
+
+# ---- run every selected method first, then lay out the report ----
+results, problems = {}, {}
+with st.spinner("Inspecting image..."):
     for m in chosen:
         ok, why = avail[m]
         if not ok:
-            st.warning(f"**{m}** is unavailable: {why}")
+            problems[m] = f"Not available: {why}"
             continue
         try:
-            with st.spinner(f"Running {m}..."):
-                results[m] = run_check(img_hash, m, img_bytes)
+            results[m] = run_check(img_hash, m, img_bytes)
         except Exception as e:
-            st.error(f"{m} failed: {type(e).__name__}: {e}")
+            problems[m] = f"Could not run: {type(e).__name__}: {e}"
 
-    for m, r in results.items():
-        meta = f"time {r.get('time_s', 0):.2f}s"
-        u = r.get("usage")
-        if isinstance(u, dict):
-            cost = u.get("cost") or u.get("cost_usd")
-            if cost is not None:
-                meta += f" | cost ${float(cost):.5f}"
-            toks = u.get("total_tokens")
-            if toks:
-                meta += f" | {toks} tokens"
-        if r.get("model"):
-            meta += f" | {r['model']}"
-        (st.success if r.get("passed") else st.error)(
-            f"{m}: {'PASS' if r.get('passed') else 'FAIL'}  ({meta})")
+c1, c2 = st.columns([1, 2], gap="large")
+with c1:
+    st.image(to_rgb(img), caption=f"Input image ({img.shape[1]}×{img.shape[0]})", width="stretch")
+
+with c2:
+    st.subheader("Inspection report")
+    if not chosen:
+        st.info("Select at least one method in the sidebar.")
+    if results:
+        votes = {d: sum(d in issues_of(r) for r in results.values()) for d in DEFECTS}
+        agreed = [d for d in DEFECTS if votes[d] * 2 > len(results)]  # majority of methods
+        with st.container(border=True):
+            if agreed:
+                st.badge("Needs fixing", icon=":material/build:", color="orange")
+                st.markdown("#### " + " · ".join(CHECK[d][1] for d in agreed))
+            else:
+                st.badge("Ready to list", icon=":material/check_circle:", color="green")
+                st.markdown("#### No quality issues found")
+            st.caption(f"Overall verdict = issues flagged by most of the {len(results)} method(s).")
+            if truth is not None:
+                exp = [CHECK[d][1] for d in DEFECTS if truth.get(d)]
+                st.caption("Expected for this demo image: " + (", ".join(exp) if exp else "no issues"))
+
+    cols = st.columns(max(len(chosen), 1))
+    for col, m in zip(cols, chosen):
+        with col, st.container(border=True):
+            st.markdown(f"**{m}**")
+            if m in problems:
+                st.badge("Skipped", color="gray")
+                st.caption(problems[m])
+                continue
+            r = results[m]
+            found = issues_of(r)
+            if found:
+                st.badge(f"Rejected · {len(found)} issue{'s' if len(found) > 1 else ''}", color="orange")
+                st.markdown("\n".join(f"- {CHECK[d][1]}" for d in found))
+            else:
+                st.badge("Approved", color="green")
+                st.markdown("No issues found")
+            st.caption(meta_line(r))
 
 if results:
-    st.subheader("Defect report")
+    st.subheader("Check by check")
     rows = []
     for d in DEFECTS:
-        row = {"Defect": DEFECT_DESCRIPTIONS.get(d, d)}
+        row = {"Check": CHECK[d][0]}
         if truth is not None:
-            row["Ground truth"] = "❌ defect" if truth.get(d) else "✅ ok"
+            row["Expected"] = "✗ Issue" if truth.get(d) else "✓ Pass"
         for m, r in results.items():
-            v = r["defects"].get(d, {})
-            s = v.get("score")
-            row[m] = ("❌" if v.get("fail") else "✅") + (f" {s:.3g}" if isinstance(s, (int, float)) else "")
+            row[m] = "✗ Issue" if r["defects"].get(d, {}).get("fail") else "✓ Pass"
         rows.append(row)
-    st.dataframe(pd.DataFrame(rows).set_index("Defect"), width="stretch")
+    table = pd.DataFrame(rows).set_index("Check")
+    st.dataframe(
+        table.style.map(lambda v: "color: #e8833a; font-weight: 600" if v.startswith("✗")
+                        else "color: #3fa66b"),
+        width="stretch")
 
-    for m, r in results.items():
-        with st.expander(f"Reasons - {m}"):
+    flagged = [d for d in DEFECTS if any(d in issues_of(r) for r in results.values())]
+    st.subheader("Findings")
+    if not flagged:
+        st.markdown("Every method passed every check.")
+    for d in flagged:
+        with st.container(border=True):
+            st.markdown(f"**{CHECK[d][1]}**")
+            for m, r in results.items():
+                v = r["defects"].get(d, {})
+                mark = "✗" if v.get("fail") else "✓"
+                st.markdown(f"{mark} *{m}*: {v.get('reason') or ('flagged' if v.get('fail') else 'passed')}")
+
+    with st.expander("Full reasoning from every method"):
+        for m, r in results.items():
+            st.markdown(f"**{m}**")
             for d in DEFECTS:
                 v = r["defects"].get(d, {})
-                st.markdown(f"**{d}** {'❌' if v.get('fail') else '✅'} - {v.get('reason') or ''}")
+                st.markdown(f"- {CHECK[d][0]}: {'✗' if v.get('fail') else '✓'} {v.get('reason') or ''}")
 
     for m, r in results.items():
         inter = r.get("intermediates") or {}
         if inter:
-            st.subheader(f"{m}: intermediate images")
-            cols = st.columns(3)
+            st.subheader("How the DIP pipeline sees the image")
+            cols = st.columns(4)
             for i, (title, arr) in enumerate(inter.items()):
-                with cols[i % 3]:
+                with cols[i % 4]:
                     st.image(to_rgb(arr), caption=title, width="stretch")
